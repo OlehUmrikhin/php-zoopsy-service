@@ -1,0 +1,19 @@
+{
+    "name": "zoopsy/php-microservice",
+    "description": "Simple PHP microservice for page views and logs using SQLite",
+    "type": "project",
+    "require": {
+        "php": ">=8.1",
+        "slim/slim": "^4.15",
+        "slim/psr7": "^1.6",
+        "vlucas/phpdotenv": "^5.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\\\": "src/"
+        }
+    },
+    "scripts": {
+        "start": "php -S 0.0.0.0:$PORT -t public"
+    }
+}
