@@ -16,38 +16,42 @@ class LogController
 
     public function handle(Request $request, Response $response): Response
     {
-        $body = json_decode((string)$request->getBody(), true);
-        $userId = $body['userId'] ?? null;
+        $body  = json_decode((string)$request->getBody(), true);
         $event = $body['event'] ?? null;
-        $meta = $body['meta'] ?? null;
+        $meta  = $body['meta'] ?? null;
 
         if (!$event) {
             $response->getBody()->write(json_encode(['error' => 'event required']));
             return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
         }
 
+        // userId: JWT attribute takes priority over body
+        $userId = $request->getAttribute('userId') ?? $body['userId'] ?? null;
+
         $ip = $request->getServerParams()['REMOTE_ADDR'] ?? $request->getHeaderLine('X-Forwarded-For');
         $ua = $request->getHeaderLine('User-Agent');
 
         try {
-            $id = bin2hex(random_bytes(16));
-            $stmt = $this->pdo->prepare("INSERT INTO user_logs (id, user_id, event_type, data, ip, user_agent, created_at)
-                VALUES (:id, :user_id, :event_type, :data, :ip, :ua, :created_at)");
+            $id   = bin2hex(random_bytes(16));
+            $stmt = $this->pdo->prepare(
+                "INSERT INTO user_logs (id, user_id, event_type, data, ip, user_agent, created_at)
+                 VALUES (:id, :user_id, :event_type, :data, :ip, :ua, :created_at)"
+            );
             $stmt->execute([
-                ':id' => $id,
-                ':user_id' => $userId,
+                ':id'         => $id,
+                ':user_id'    => $userId,
                 ':event_type' => $event,
-                ':data' => json_encode($meta),
-                ':ip' => $ip,
-                ':ua' => $ua,
-                ':created_at' => (new \DateTime('now'))->format(DATE_ATOM)
+                ':data'       => json_encode($meta),
+                ':ip'         => $ip,
+                ':ua'         => $ua,
+                ':created_at' => (new \DateTime('now'))->format(DATE_ATOM),
             ]);
         } catch (\Throwable $e) {
             $response->getBody()->write(json_encode(['error' => 'db error', 'message' => $e->getMessage()]));
             return $response->withStatus(500)->withHeader('Content-Type', 'application/json');
         }
 
-        $response->getBody()->write(json_encode(['id' => $id]));
+        $response->getBody()->write(json_encode(['id' => $id, 'userId' => $userId]));
         return $response->withStatus(201)->withHeader('Content-Type', 'application/json');
     }
 }
