@@ -30,12 +30,19 @@ class JwtAuthMiddleware implements Middleware
         $token = $matches[1];
 
         try {
-            // In a production app should cache the JWKS, but for now we fetch it
-            $jwksJson = file_get_contents($this->jwksUrl);
-            $jwks = json_decode($jwksJson, true);
-            $keys = JWK::parseKeySet($jwks);
-
-            $decoded = JWT::decode($token, $keys);
+            if (empty($this->jwksUrl)) {
+                // Dev mode: decode without signature verification
+                $parts = explode('.', $token);
+                if (count($parts) !== 3) throw new \RuntimeException('Malformed JWT');
+                $pad     = strlen($parts[1]) % 4;
+                $decoded = json_decode(base64_decode(strtr($parts[1], '-_', '+/') . ($pad ? str_repeat('=', 4 - $pad) : '')));
+                if (!$decoded) throw new \RuntimeException('Cannot decode JWT payload');
+            } else {
+                $jwksJson = file_get_contents($this->jwksUrl);
+                $jwks     = json_decode($jwksJson, true);
+                $keys     = JWK::parseKeySet($jwks);
+                $decoded  = JWT::decode($token, $keys);
+            }
             
             // Set session data
             $_SESSION['user_id'] = $decoded->sub;

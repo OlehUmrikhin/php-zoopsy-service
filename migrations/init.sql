@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS user_logs (
     created_at TEXT NOT NULL
 );
 
--- Create page_views
+-- Create page_views (global counter)
 CREATE TABLE IF NOT EXISTS page_views (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     page TEXT NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS page_views (
     UNIQUE(page, view_date)
 );
 
--- Create unique_page_views to track unique visitors per page/date
+-- Unique visitors per page/date (session-based)
 CREATE TABLE IF NOT EXISTS unique_page_views (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     page TEXT NOT NULL,
@@ -28,6 +28,17 @@ CREATE TABLE IF NOT EXISTS unique_page_views (
     session_id TEXT,
     UNIQUE(page, view_date, uniq_key)
 );
+
+-- Per-user page view counter (JWT userId-based)
+CREATE TABLE IF NOT EXISTS user_page_views (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    page TEXT NOT NULL,
+    view_date TEXT NOT NULL,
+    count INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(user_id, page, view_date)
+);
+
 -- Create sessions
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
@@ -35,7 +46,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     last_access INTEGER NOT NULL
 );
 
--- Indexes to speed up stats queries
+-- Indexes
 CREATE INDEX IF NOT EXISTS idx_unique_page_views_page_date ON unique_page_views(page, view_date);
+CREATE INDEX IF NOT EXISTS idx_user_page_views_user_page ON user_page_views(user_id, page, view_date);
 CREATE INDEX IF NOT EXISTS idx_user_logs_user_created ON user_logs(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_sessions_last_access ON sessions(last_access);

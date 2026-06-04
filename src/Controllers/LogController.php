@@ -16,9 +16,12 @@ class LogController
 
     public function handle(Request $request, Response $response): Response
     {
-        $body = json_decode((string)$request->getBody(), true);
-        $userId = $body['userId'] ?? null;
+        $body  = json_decode((string)$request->getBody(), true);
         $event = $body['event'] ?? null;
+
+        // userId: JWT middleware attribute → body fallback
+        $jwtUser = $request->getAttribute('user');
+        $userId  = $jwtUser->sub ?? $body['userId'] ?? null;
         $meta = $body['meta'] ?? null;
 
         if (!$event) {
