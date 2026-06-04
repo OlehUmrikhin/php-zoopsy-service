@@ -50,4 +50,49 @@ class LogController
         $response->getBody()->write(json_encode(['id' => $id]));
         return $response->withStatus(201)->withHeader('Content-Type', 'application/json');
     }
+
+    public function list(Request $request, Response $response): Response
+    {
+        $params = $request->getQueryParams();
+        $userId = $params['userId'] ?? null;
+        $event = $params['event'] ?? null;
+        $from = $params['from'] ?? null;
+        $to = $params['to'] ?? null;
+        $limit = isset($params['limit']) ? (int)$params['limit'] : 100;
+        $limit = max(1, min(1000, $limit));
+        $page = isset($params['page']) ? max(1, (int)$params['page']) : 1;
+        $offset = ($page - 1) * $limit;
+
+        $sql = "SELECT id, user_id, event_type, data, ip, user_agent, created_at FROM user_logs WHERE 1=1";
+        $bind = [];
+        if ($userId) { $sql .= " AND user_id = :user_id"; $bind[':user_id'] = $userId; }
+        if ($event) { $sql .= " AND event_type = :event"; $bind[':event'] = $event; }
+        if ($from) { $sql .= " AND date(created_at) >= :from"; $bind[':from'] = $from; }
+        if ($to) { $sql .= " AND date(created_at) <= :to"; $bind[':to'] = $to; }
+
+        $sql .= " ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($bind as $k => $v) { $stmt->bindValue($k, $v); }
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // total count for pagination
+        $countSql = "SELECT COUNT(*) FROM user_logs WHERE 1=1";
+        $countBind = [];
+        if ($userId) { $countSql .= " AND user_id = :user_id"; $countBind[':user_id'] = $userId; }
+        if ($event) { $countSql .= " AND event_type = :event"; $countBind[':event'] = $event; }
+        if ($from) { $countSql .= " AND date(created_at) >= :from"; $countBind[':from'] = $from; }
+        if ($to) { $countSql .= " AND date(created_at) <= :to"; $countBind[':to'] = $to; }
+
+        $countStmt = $this->pdo->prepare($countSql);
+        foreach ($countBind as $k => $v) { $countStmt->bindValue($k, $v); }
+        $countStmt->execute();
+        $total = (int)$countStmt->fetchColumn();
+
+        $response->getBody()->write(json_encode(['data' => $rows, 'meta' => ['total' => $total, 'page' => $page, 'limit' => $limit]]));
+        return $response->withHeader('Content-Type', 'application/json');
+    }
 }
