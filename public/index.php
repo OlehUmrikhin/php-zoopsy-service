@@ -50,7 +50,6 @@ $pdo->exec('PRAGMA busy_timeout = 5000;');
 $handler = new SQLiteSessionHandler($pdo); 
 session_set_save_handler($handler, true); 
 
-// detect TLS (works behind proxies that set X-Forwarded-Proto) 
 $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https'); 
 $secure = ($appEnv === 'production') && $isHttps; 
 
@@ -95,6 +94,8 @@ if ($sid) {
         error_log("Session handling error: " . $e->getMessage()); 
     } 
 } 
+$app = AppFactory::create();
+$app->addRoutingMiddleware();
 
 // CORS — single outermost middleware 
 $app->add(function ($request, $handler) use ($appEnv) { 
