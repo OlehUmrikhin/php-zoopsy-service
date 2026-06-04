@@ -50,14 +50,27 @@ $pdo->exec('PRAGMA busy_timeout = 5000;');
 $handler = new SQLiteSessionHandler($pdo);
 session_set_save_handler($handler, true);
 
-$secure = $appEnv === 'production';
-session_set_cookie_params([
+// $secure = $appEnv === 'production';
+// session_set_cookie_params([
+//     'lifetime' => 0,
+//     'path' => '/',
+//     'secure' => $secure,
+//     'httponly' => true,
+//     'samesite' => 'Lax'
+// ]);
+$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
+
+$secure = ($appEnv === 'production') && $isHttps;
+$cookieOptions = [
     'lifetime' => 0,
     'path' => '/',
     'secure' => $secure,
     'httponly' => true,
-    'samesite' => 'Lax'
-]);
+    'samesite' => $secure ? 'None' : 'Lax',
+];
+session_set_cookie_params($cookieOptions);
+
 session_start();
 
 $sessionLifetime = (int)($_ENV['SESSION_LIFETIME'] ?? 900); // default 15 minutes
