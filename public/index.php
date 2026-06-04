@@ -46,39 +46,21 @@ $pdo->exec('PRAGMA journal_mode = WAL;');
 $pdo->exec('PRAGMA synchronous = NORMAL;');
 $pdo->exec('PRAGMA busy_timeout = 5000;');
 
-// session handler
+// Session handler — stored in SQLite, but NO cookie is sent to the browser.
+// This is a cross-site API: setting PHPSESSID via Set-Cookie would be blocked
+// by browsers for SameSite=Lax on cross-site fetch requests.
+// Session ID is derived server-side from IP + date (daily unique-visitor key).
+ini_set('session.use_cookies', '0');
+ini_set('session.use_only_cookies', '0');
+ini_set('session.use_trans_sid', '0');
+
 $handler = new SQLiteSessionHandler($pdo);
 session_set_save_handler($handler, true);
 
-$secure = $appEnv === 'production';
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path' => '/',
-    'secure' => $secure,
-    'httponly' => true,
-    'samesite' => 'Lax'
-]);
+$clientIp  = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+$serverSid = md5($clientIp . date('Y-m-d'));
+session_id($serverSid);
 session_start();
-
-$sessionLifetime = (int)($_ENV['SESSION_LIFETIME'] ?? 900); // default 15 minutes
-$sid = session_id();
-if ($sid) {
-    try {
-        $stmt = $pdo->prepare("SELECT last_access FROM sessions WHERE id = :id LIMIT 1");
-        $stmt->execute([':id' => $sid]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        $now = time();
-        if ($row) {
-            $last = (int)$row['last_access'];
-            if ($last + $sessionLifetime < $now) {
-                session_destroy();
-                session_start();
-            }
-        }
-    } catch (\Throwable $e) {
-        error_log("Session handling error: " . $e->getMessage());
-    }
-}
 
 $app = AppFactory::create();
 $app->addRoutingMiddleware();
