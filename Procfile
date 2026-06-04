@@ -1,1 +1,1 @@
-web: php -S 0.0.0.0:$PORT -t public
+web: php scripts/init_db.php && php -S 0.0.0.0:${PORT:-8080} -t public

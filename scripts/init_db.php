@@ -8,7 +8,14 @@ if (file_exists($envFile)) {
     (Dotenv\Dotenv::createImmutable($root))->load();
 }
 
-$dbPath = getenv('DB_PATH') ?: $root . '/data/database.sqlite';
+$dbPathEnv = getenv('DB_PATH') ?: 'data/database.sqlite';
+
+if (strpos($dbPathEnv, '/') === 0) {
+    $dbPath = $dbPathEnv;
+} else {
+    $dbPath = $root . '/' . ltrim($dbPathEnv, '/\\');
+}
+
 if (!is_dir(dirname($dbPath))) {
     mkdir(dirname($dbPath), 0777, true);
 }
@@ -16,6 +23,9 @@ if (!is_dir(dirname($dbPath))) {
 $dsn = 'sqlite:' . $dbPath;
 $pdo = new PDO($dsn);
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$pdo->exec('PRAGMA journal_mode = WAL;');
+$pdo->exec('PRAGMA synchronous = NORMAL;');
+$pdo->exec('PRAGMA busy_timeout = 5000;');
 
 $sql = file_get_contents(__DIR__ . '/../migrations/init.sql');
 $pdo->exec($sql);
